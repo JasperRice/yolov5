@@ -51,6 +51,7 @@ def plot(image, det):
 def plot_time(times):
     _, ax = plt.subplots(1)
     ax.plot(times)
+    plt.title("Average time - {} s".format(np.mean(np.array(times)).round(5)))
     plt.show
 
 
