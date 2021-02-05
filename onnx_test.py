@@ -9,6 +9,8 @@ import onnxruntime
 from cv2 import cv2
 from matplotlib import pyplot as plt
 
+from max_length_list import Base
+
 
 def rmse(x, y):
     size = x.size
@@ -44,6 +46,12 @@ def plot(image, det):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     ax.imshow(image)
     plt.show()
+
+
+def plot_time(times):
+    _, ax = plt.subplots(1)
+    ax.plot(times)
+    plt.show
 
 
 def preprocess(path):
@@ -306,25 +314,44 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
 
 
 # %%
+preprocess_time = []
+postprocess_time = []
+model_time = []
 weight = './weights/inference.yolov5s.v12.onnx'
 path = '/cv_data/sifan/images/original/follow/distance/dw800/0/1020.jpg'
 model = onnxruntime.InferenceSession(weight)
-img, im0 = preprocess(path)
-output = model.run(None, {'images': img})
 
-if len(output) == 4:    # onnx v12
-    pred = output[0]
-else:                   # onnx 10
-    pred = postprocess(output)[0]
-    np.save('train.pred.npy', pred)
-pred = non_max_suppression(pred, conf_thres=0.25, iou_thres=0.45)
+end = time.time()
+for _ in range(256):
+    img, im0 = preprocess(path)
 
-for det in pred:
-    if len(det):
-        det[:, :4] = scale_coords(
-            img.shape[2:], det[:, :4], im0.shape).round()
-        human = det[det[:, -1] == 0]
+    preprocess_time.append(time.time() - end)
+    end = time.time()
+
+    output = model.run(None, {'images': img})
+
+    model_time.append(time.time() - end)
+    end = time.time()
+
+    if len(output) == 4:    # onnx 10, 11, 12
+        pred = output[0]
+    else:                   # onnx 10
+        pred = postprocess(output)[0]
+    pred = non_max_suppression(pred, conf_thres=0.25, iou_thres=0.45)
+
+    for det in pred:
+        if len(det):
+            det[:, :4] = scale_coords(
+                img.shape[2:], det[:, :4], im0.shape).round()
+            human = det[det[:, -1] == 0]
+
+    postprocess_time.append(time.time() - end)
+    end = time.time()
 
 
 # %%
 plot(im0, human)
+plot_time(preprocess_time)
+plot_time(model_time)
+plot_time(postprocess_time)
+
